@@ -85,10 +85,23 @@ async function syncDevice(id: string) {
   finally { entry.syncing = false; }
 }
 let nextCleanup = 0;
-app.addHook('onRequest', async () => {
+app.addHook('onRequest', async req => {
   if (Date.now() < nextCleanup) return;
   nextCleanup = Date.now() + 60000;
-  try { await broker.cleanup(); } catch { nextCleanup = 0; throw fail(503, 'Database is temporarily unavailable.'); }
+  try { await broker.cleanup(); }
+  catch (error) {
+    nextCleanup = 0;
+    const failure = error as { code?: unknown; cause?: { code?: unknown }; errors?: { code?: unknown }[] };
+    const code = (value: unknown) => typeof value === 'string' && /^[A-Z0-9_]{1,64}$/.test(value) ? value : 'UNKNOWN';
+    req.log.error({
+      code: code(failure?.code), causeCode: code(failure?.cause?.code),
+      nestedCodes: Array.isArray(failure?.errors) ? failure.errors.slice(0, 4).map(item => code(item?.code)) : [],
+      timedOut: error instanceof Error && /timeout|timed out/i.test(error.message),
+      tlsModeSpecified: /[?&]sslmode=/.test(env.DATABASE_URL),
+      tlsCaSpecified: /[?&]sslrootcert=/.test(env.DATABASE_URL),
+    }, '[DEBUG-db-connect] Database cleanup failed');
+    throw fail(503, 'Database is temporarily unavailable.');
+  }
 });
 
 async function owner(req: FastifyRequest) {
