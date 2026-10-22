@@ -1,0 +1,14 @@
+node_modules/
+.env*
+!.env.example
+dist/
+.expo/
+.claude/
+.gradle/
+build/
+local.properties
+*.keystore
+*.jks
+companion/android/
+companion/ios/
+*.log

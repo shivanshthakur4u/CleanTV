@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "TV Home",
+    "slug": "tv-home-companion",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/tv-home-icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.tvhome.companion",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#162221",
+        "foregroundImage": "./assets/tv-home-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.tvhome.companion",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos to use as your TV wallpaper.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-font"
+    ],
+    "scheme": "tvhome"
+  }
+}
