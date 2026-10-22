@@ -2,11 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "fastify",
   "buildCommand": "npm run build",
-  "regions": ["hnd1"],
-  "functions": {
-    "src/server.ts": {
-      "maxDuration": 300,
-      "includeFiles": "{certs,public}/**"
-    }
-  }
+  "regions": ["hnd1"]
 }

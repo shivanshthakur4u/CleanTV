@@ -23,7 +23,10 @@ Transaction pooling is unsuitable because socket instances use PostgreSQL LISTEN
 
 Import the project into Vercel and set its Root Directory to `relay` within this project.
 If the repository contains this entire folder under another directory, use the full repository-relative path ending in `tv-home/relay`.
-The included `relay/vercel.json` selects Fastify, its build command, Tokyo execution near the supplied database, certificate/static assets, and a 300-second invocation limit.
+The included `relay/vercel.json` selects Fastify, its build command, and Tokyo execution near the supplied database.
+The server exports its 300-second invocation limit, and its explicit certificate read keeps the database CA in Vercel's traced function bundle.
+Do not add a `functions` override for `src/server.ts`; Vercel CLI 64.7.0 rejects that override for Fastify before building.
+The build temporarily prints `[DEBUG-vercel-entry]` so deployment logs show that the corrected revision is running.
 Keep Fluid compute enabled for WebSocket support.
 
 Set these server environment variables before deployment:

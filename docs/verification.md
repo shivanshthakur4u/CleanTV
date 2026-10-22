@@ -44,6 +44,8 @@ This records checks performed on the developer preview; it does not certify publ
 | Bodyless phone requests | A bodyless DELETE reached authentication and returned HTTP 401. |
 | Vercel-mode export | The exported HTTP server returned status ok from its local health endpoint. |
 | Vercel configuration | Matched published configuration property rules. |
+| Vercel CLI 64.7.0 build failure | Reproduced the exact `unused_function` error with the CLI's build detector; removing the Fastify function override cleared it. |
+| Vercel Fastify function build | The CLI's actual Fastify builder passed with the corrected configuration, a 300-second duration, the database CA, and both APK download assets. |
 | Socket failure handling | Invalid device credentials returned HTTP 401; a simulated database outage returned HTTP 503. |
 
 The final mobile dependency audit reported 18 high-severity entries arising from the two remaining upstream `braces` and `node-forge` advisories and their dependency chains.

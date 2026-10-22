@@ -10,6 +10,10 @@ import { z } from 'zod';
 import { RelayBroker, fail } from './broker.js';
 import { databaseRateStore, incrementRate } from './rate-store.js';
 
+export const config = { maxDuration: 300 };
+// Keep the database CA visible to Vercel's file tracer and verify it is bundled.
+if (process.env.VERCEL === '1') await readFile(new URL('../certs/prod-ca-2021.crt', import.meta.url));
+
 const env = z.object({
   DATABASE_URL: z.string().min(1),
   SUPABASE_URL: z.url().refine(v => new URL(v).protocol === 'https:'),

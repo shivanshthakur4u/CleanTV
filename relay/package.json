@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "build": "tsc --noEmit && tsc",
+    "build": "node -e \"console.info('[DEBUG-vercel-entry] Fastify entry: src/server.ts; function overrides disabled')\" && tsc --noEmit && tsc",
     "start": "node --env-file=.env dist/server.js",
     "migrate": "tsx --env-file=.env src/migrate.ts"
   },

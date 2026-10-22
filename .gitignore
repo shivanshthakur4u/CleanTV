@@ -3,6 +3,7 @@ node_modules/
 !.env.example
 dist/
 .expo/
+.vercel/
 .claude/
 .gradle/
 build/
