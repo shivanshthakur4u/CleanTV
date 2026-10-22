@@ -9,6 +9,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { z } from 'zod';
 import { RelayBroker, fail } from './broker.js';
 import { databaseRateStore, incrementRate } from './rate-store.js';
+import { databaseConnectionString } from './database.js';
 
 export const config = { maxDuration: 300 };
 // Keep the database CA visible to Vercel's file tracer and verify it is bundled.
@@ -24,7 +25,8 @@ const env = z.object({
 }).parse(process.env);
 const issuer = `${env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1`;
 const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
-const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 4, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 10000 });
+const connectionString = databaseConnectionString(env.DATABASE_URL);
+const pool = new pg.Pool({ connectionString, max: 4, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 10000 });
 const app = Fastify({ bodyLimit: 3_000_000, trustProxy: process.env.VERCEL === '1' || env.TRUST_PROXY === 'true', logger: { redact: ['req.headers.authorization', 'req.body'] } });
 pool.on('error', () => app.log.warn('Idle database connection closed.'));
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute', store: databaseRateStore(pool) });
@@ -58,7 +60,7 @@ type Device = { id: string; owner_id: string | null; name: string };
 type Connection = { ws: WebSocket; id: string; syncing: boolean; again: boolean };
 const sockets = new Map<string, Connection>();
 let upgrades = 0;
-const broker = new RelayBroker(pool, env.DATABASE_URL, id => { void syncDevice(id); }, () => {
+const broker = new RelayBroker(pool, connectionString, id => { void syncDevice(id); }, () => {
   for (const connection of sockets.values()) connection.ws.close(1012, 'Relay reconnecting');
 });
 async function syncDevice(id: string) {

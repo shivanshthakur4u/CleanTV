@@ -47,6 +47,8 @@ This records checks performed on the developer preview; it does not certify publ
 | Vercel CLI 64.7.0 build failure | Reproduced the exact `unused_function` error with the CLI's build detector; removing the Fastify function override cleared it. |
 | Vercel Fastify function build | The CLI's actual Fastify builder passed with the corrected configuration, a 300-second duration, the database CA, and both APK download assets. |
 | Socket failure handling | Invalid device credentials returned HTTP 401; a simulated database outage returned HTTP 503. |
+| Certificate lookup from another working directory | Reproduced HTTP 503 with `ENOENT` before the fix; after resolving the root certificate from the application directory, the homepage and health endpoint returned HTTP 200. |
+| Database TLS after certificate-path fix | Verified the TLS connection and the separate PostgreSQL notification listener from another working directory with certificate validation enabled. |
 
 The final mobile dependency audit reported 18 high-severity entries arising from the two remaining upstream `braces` and `node-forge` advisories and their dependency chains.
 The URI decoder and UUID advisories were removed by the documented compatibility updates.

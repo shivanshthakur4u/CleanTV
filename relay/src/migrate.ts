@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
+import { databaseConnectionString } from './database.js';
 
 if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL before running migrations.');
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({ connectionString: databaseConnectionString(process.env.DATABASE_URL) });
 const client = await pool.connect();
 try {
   await client.query("SELECT pg_advisory_lock(hashtext('tv-home-migrations'))");

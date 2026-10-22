@@ -9,7 +9,8 @@ The certificate was downloaded over verified HTTPS from [Supabase's distribution
 - Expires: 26 April 2031.
 
 For Supabase connections, include `sslmode=verify-full&sslrootcert=certs/prod-ca-2021.crt` in the database URI query.
-The path is relative to the relay working directory and is also included in the Docker image.
+Relative root-certificate paths resolve from the relay application directory, independently of the process working directory.
+The certificate is also included in the Docker image.
 This scopes trust to the database connection without changing the operating system's trust store.
 If Supabase rotates its root certificate, obtain the replacement from its official dashboard or published distribution and verify it before replacing this file.
 

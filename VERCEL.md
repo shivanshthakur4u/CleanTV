@@ -37,6 +37,7 @@ Set these server environment variables before deployment:
 | `DATABASE_URL` | The private PostgreSQL URI, including the encoded password and `sslmode=verify-full&sslrootcert=certs/prod-ca-2021.crt` query parameters. |
 
 The local `relay/.env` contains these values and is excluded from source archives and Vercel uploads.
+The relay resolves a relative `sslrootcert` from its application directory so Vercel's working directory does not affect certificate lookup.
 No Supabase service-role key is needed by the relay or either app.
 Keep database credentials in server secrets and rotate credentials shared in chat before public launch.
 Do not use disabled database TLS from the local-only example configuration.
