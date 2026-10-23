@@ -18,12 +18,28 @@ android {
         applicationId = "app.tvhome.launcher"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-preview"
+        versionCode = 2
+        versionName = "0.2.0-preview"
         buildConfigField("String", "RELAY_URL", "\"$relayOrigin\"")
     }
     buildFeatures { buildConfig = true }
-    buildTypes { release { isMinifyEnabled = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt")) } }
+    // Publisher signing comes from the environment; without it, release builds use the development key and are previews only.
+    val keystore = providers.environmentVariable("TVHOME_KEYSTORE").orNull
+    signingConfigs {
+        if (keystore != null) create("publisher") {
+            storeFile = file(keystore)
+            storePassword = providers.environmentVariable("TVHOME_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("TVHOME_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("TVHOME_KEY_PASSWORD").get()
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = true; isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.findByName("publisher") ?: signingConfigs.getByName("debug")
+        }
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }

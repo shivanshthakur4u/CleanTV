@@ -4,6 +4,55 @@ Prepared on 23 October 2026, Asia/Kolkata.
 This document describes the actual implementation and verified state, rather than treating the developer preview as a finished public release.
 No private credential values are included.
 
+## 0. Update for 0.2 (23 October 2026)
+
+This section supersedes older statements below where they conflict.
+
+### Deploy order
+
+1. Deploy the relay first by pushing `main`, because the 0.1 relay rejects 0.2 TV state replies with its strict schema.
+2. Confirm `GET /health` returns 200 after the deployment.
+3. Only then replace the two APKs on the download page or install them on TVs and phones.
+
+No new database migration is required.
+
+### What changed
+
+- Relay: new settings fields, new remote keys, state validation that passes unknown TV fields through, and `DELETE /v1/account`.
+- TV 0.2.0: tvOS-style home with app banners in a glass favourites shelf, an All apps grid, folders, hidden apps, and an adaptive background tinted by the focused app.
+- TV 0.2.0: Liquid Glass and Frosted Glass, adjustable blur through `RenderEffect` on Android 12 or later, and a darker scrim on older TVs.
+- TV 0.2.0: Dark Mode that is off, on, sunset to sunrise, or custom, with darker tiles and banners.
+- TV 0.2.0: status pill styles (minimal, full, weather, hidden) that open Control Center.
+- TV 0.2.0: Control Center with Screensaver, Wi-Fi, Bluetooth, Inputs, Settings, Dark Mode, Cast, Recent apps, and TV Home settings.
+- TV 0.2.0: Recent Apps for apps opened from TV Home, with a live RAM meter, and Up to close an app through `killBackgroundProcesses`.
+- TV 0.2.0: weather and sunrise or sunset from Open-Meteo, which needs no key, using a city chosen on the TV or phone.
+- TV 0.2.0: remappable Menu and Info or Guide buttons, a first-run favourites seed, package-change refresh, and immediate relay reconnect when the network returns.
+- TV 0.2.0: tile pictures and the wallpaper bitmap are released when another app is in front and redrawn on return.
+- TV 0.2.0: release builds use R8 and resource shrinking; the release APK is about 285 KB.
+- TV 0.2.0: publisher signing is read from `TVHOME_KEYSTORE`, `TVHOME_KEYSTORE_PASSWORD`, `TVHOME_KEY_ALIAS`, and `TVHOME_KEY_PASSWORD`; without them the development key is used.
+- Phone 0.2.0: a Style tab for glass, blur, Dark Mode schedule, status pill, tiles, scenes, and dimming.
+- Phone 0.2.0: Settings for weather, remote buttons, a 12-app favourites shelf, folders, hidden apps, and account deletion.
+- Phone 0.2.0: Control Center, Recent apps, and All apps shortcuts on the Remote tab, plus forgot-password and a `reset-password` screen.
+- Phone 0.2.0: options that need TV 0.2 are hidden when the paired TV still runs 0.1.
+
+### Required Supabase dashboard step for password reset
+
+Add `tvhome://reset-password` to Authentication, URL Configuration, Redirect URLs.
+Without it, Supabase sends the reset link to the Site URL and the app cannot finish the reset.
+
+### Not implemented, by design
+
+- Continue Watching rows need the system TV provider's watch-next data, which third-party launchers cannot read on current Android TV builds.
+- True sleep or power off needs system privileges, so Control Center starts the screensaver instead.
+- Recent Apps lists apps opened from TV Home, because the system recents list is not available to third-party apps.
+
+### Verification status for 0.2
+
+Passed: relay TypeScript build, TV debug and release builds, TV lint with no errors, companion typecheck and lint, and iOS and Android JavaScript exports.
+The TV release APK contains the production relay origin and is signed with the same development certificate as the 0.1 preview, so it installs as an update.
+No TV, emulator, or Android TV system image was available, so the new interface has not been run on a screen.
+Sign-in, pairing, wallpaper upload, reconnection, away-from-home control, and account deletion still need checks with a real TV and an authorized account.
+
 ## 1. Start here
 
 | Item | Current value |

@@ -31,10 +31,36 @@ Removing a TV with `DELETE /v1/devices/:id` deletes its authorization record and
 | Command | Payload |
 | --- | --- |
 | `getState` | No additional fields. |
-| `settings` | A partial settings object containing scene, dim, roomName, favorites, or clock24h. |
+| `settings` | A partial settings object; see the settings table below. |
 | `wallpaper` | A base64 JPEG, PNG, or WebP image, capped before and after decoding. |
 | `launchApp` | The package identifier of an installed app. |
-| `navigate` | up, down, left, right, select, back, or home. |
+| `navigate` | up, down, left, right, select, back, home, controlCenter, recents, or apps. |
+
+### Settings fields
+
+| Field | Values | Since TV |
+| --- | --- | --- |
+| `scene` | dusk, aurora, sand, ocean, adaptive (0.2), or photo. | 0.1 |
+| `dim` | 0 to 0.8. | 0.1 |
+| `roomName` | 1 to 40 characters. | 0.1 |
+| `clock24h` | Boolean. | 0.1 |
+| `favorites` | Up to 12 installed package names (8 before 0.2). | 0.1 |
+| `glass` | liquid or frosted. | 0.2 |
+| `blur` | Integer 0 to 25, applied to the backdrop behind menus on Android 12 or later. | 0.2 |
+| `darkMode` | off, on, sunset, or custom. | 0.2 |
+| `darkStart`, `darkEnd` | Minutes after midnight, 0 to 1439, used by the custom schedule. | 0.2 |
+| `pill` | minimal, full, weather, or hidden. | 0.2 |
+| `iconStyle` | banner or icon. | 0.2 |
+| `weatherCity` | Up to 60 characters; empty turns weather off. | 0.2 |
+| `tempUnit` | c or f. | 0.2 |
+| `menuAction`, `infoAction` | controlCenter, recents, apps, settings, or none. | 0.2 |
+| `hidden` | Up to 300 package names. | 0.2 |
+| `folders` | Up to 12 folders, each with a 1 to 24 character name and up to 24 package names. | 0.2 |
+
+The TV drops package names that are no longer installed instead of rejecting the whole change.
+The TV reports every field it knows in its state, plus `version`, `darkActive`, `recents`, `ram`, and `weather` from 0.2.
+The relay validates the fields it knows and passes newer fields through, so a newer TV build does not break an older relay.
+A 0.1 relay rejects 0.2 state replies, so deploy the relay before distributing a 0.2 TV build.
 
 The relay wraps each command in a random request ID and a deadline.
 The TV rejects expired commands and validates settings and images again locally.
@@ -44,6 +70,12 @@ Replies are stored until the originating request reads them, allowing HTTP and W
 Expired payloads are removed by request-triggered cleanup.
 An acknowledged result contains the TV's current state, including its installed app labels and current appearance.
 A timeout means the change was not confirmed; the phone should refresh before retrying.
+
+## Account deletion
+
+`DELETE /v1/account` removes every TV owned by the signed-in account, closes their sockets, deletes the account's pairing requests, and then deletes the Supabase Auth user.
+The relay performs the Auth deletion with its database connection, so it needs no service-role key.
+If the Auth deletion fails, the TVs stay removed and the phone is told to try again.
 
 ## Hosting and connection lifecycle
 

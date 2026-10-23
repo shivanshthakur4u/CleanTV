@@ -34,28 +34,46 @@ await app.register(rateLimit, { max: 120, timeWindow: '1 minute', store: databas
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const uuid = z.uuid();
 const pkg = z.string().regex(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/).max(200);
+const scene = z.enum(['dusk', 'aurora', 'sand', 'ocean', 'adaptive', 'photo']);
+const action = z.enum(['controlCenter', 'recents', 'apps', 'settings', 'none']);
+const minute = z.number().int().min(0).max(1439);
+const folder = z.object({ name: z.string().trim().min(1).max(24), apps: z.array(pkg).max(24) }).strict();
 const settings = z.object({
-  scene: z.enum(['dusk', 'aurora', 'sand', 'ocean', 'photo']).optional(),
+  scene: scene.optional(),
   dim: z.number().min(0).max(0.8).optional(),
   roomName: z.string().trim().min(1).max(40).optional(),
-  favorites: z.array(pkg).max(8).refine(v => new Set(v).size === v.length).optional(),
+  favorites: z.array(pkg).max(12).refine(v => new Set(v).size === v.length).optional(),
   clock24h: z.boolean().optional(),
+  glass: z.enum(['liquid', 'frosted']).optional(),
+  blur: z.number().int().min(0).max(25).optional(),
+  darkMode: z.enum(['off', 'on', 'sunset', 'custom']).optional(),
+  darkStart: minute.optional(),
+  darkEnd: minute.optional(),
+  pill: z.enum(['minimal', 'full', 'weather', 'hidden']).optional(),
+  iconStyle: z.enum(['banner', 'icon']).optional(),
+  weatherCity: z.string().trim().max(60).optional(),
+  tempUnit: z.enum(['c', 'f']).optional(),
+  menuAction: action.optional(),
+  infoAction: action.optional(),
+  hidden: z.array(pkg).max(300).refine(v => new Set(v).size === v.length).optional(),
+  folders: z.array(folder).max(12).optional(),
 }).strict();
 const command = z.discriminatedUnion('type', [
   z.object({ type: z.literal('getState') }).strict(),
   z.object({ type: z.literal('settings'), settings }).strict(),
   z.object({ type: z.literal('wallpaper'), data: z.string().min(4).max(2_800_000).regex(/^[A-Za-z0-9+/]+={0,2}$/) }).strict(),
   z.object({ type: z.literal('launchApp'), package: pkg }).strict(),
-  z.object({ type: z.literal('navigate'), key: z.enum(['up', 'down', 'left', 'right', 'select', 'back', 'home']) }).strict(),
+  z.object({ type: z.literal('navigate'), key: z.enum(['up', 'down', 'left', 'right', 'select', 'back', 'home', 'controlCenter', 'recents', 'apps']) }).strict(),
 ]);
+// Older and newer TV builds may report fields this relay does not know; keep the known ones validated and pass the rest through.
 const tvState = z.object({
-  roomName: z.string().max(40), scene: z.enum(['dusk', 'aurora', 'sand', 'ocean', 'photo']),
+  roomName: z.string().max(40), scene,
   dim: z.number().min(0).max(0.8), clock24h: z.boolean(),
-  favorites: z.array(pkg).max(8),
-  apps: z.array(z.object({ package: pkg, label: z.string().max(160) })).max(300),
+  favorites: z.array(pkg).max(12),
+  apps: z.array(z.object({ package: pkg, label: z.string().max(160) }).loose()).max(300),
   model: z.string().max(160), sdk: z.number().int(),
   homeVisible: z.boolean(), wallpaperPreview: z.string().max(160000).optional(),
-}).strict();
+}).loose();
 type Device = { id: string; owner_id: string | null; name: string };
 type Connection = { ws: WebSocket; id: string; syncing: boolean; again: boolean };
 const sockets = new Map<string, Connection>();
@@ -166,6 +184,20 @@ app.delete('/v1/devices/:id', async req => {
   await pool.query('DELETE FROM devices WHERE id=$1', [device.id]);
   await broker.notify(device.id);
   return { removed: true };
+});
+
+app.delete('/v1/account', { config: { rateLimit: { max: 5, timeWindow: '1 hour' } } }, async req => {
+  const user = await owner(req);
+  const removed = await pool.query<{ id: string }>('DELETE FROM devices WHERE owner_id=$1 RETURNING id', [user.id]);
+  await Promise.all(removed.rows.map(row => broker.notify(row.id)));
+  await pool.query('DELETE FROM pairing_requests WHERE owner_id=$1', [user.id]);
+  // The relay connects as the database owner, which may delete the Supabase Auth user and its sessions.
+  try { await pool.query('DELETE FROM auth.users WHERE id=$1', [user.id]); }
+  catch (error) {
+    req.log.error({ code: (error as { code?: string }).code }, 'Account deletion failed');
+    throw fail(503, 'Your TVs were removed, but the account could not be deleted. Try again shortly.');
+  }
+  return { deleted: true, devices: removed.rowCount };
 });
 
 app.post('/v1/tv/register', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async req => {

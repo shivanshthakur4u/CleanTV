@@ -2,6 +2,8 @@ package app.tvhome.launcher
 
 import android.app.*
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.*
 import android.view.KeyEvent
 import okhttp3.*
@@ -25,9 +27,15 @@ class RemoteService : Service() {
     private var retry = 0
     private var stopping = false
 
+    // Reconnect as soon as the TV regains a network instead of waiting out the backoff.
+    private val network = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { queue { if (!connected && !connecting && credentials.enabled && !stopping) { retry = 0; main.removeCallbacks(reconnect); connect() } } }
+    }
+
     override fun onBind(intent: Intent?) = null
     override fun onCreate() {
         super.onCreate(); credentials = RelayCredentials(this); store = HomeStore(this)
+        runCatching { getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(network) }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel("phone", "Phone control", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -82,7 +90,8 @@ class RemoteService : Service() {
                 } }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { queue {
                     if (socket !== webSocket) return@queue
-                    if (response?.code == 401) { credentials.clear(); stopping = true; event("error", "Pair this TV again."); stopSelf() } else disconnected()
+                    if (response?.code == 401 && pairRequested) { credentials.forget(); connecting = false; socket = null; connect() }
+                    else if (response?.code == 401) { credentials.clear(); stopping = true; event("error", "Pair this TV again."); stopSelf() } else disconnected()
                 } }
             })
         } catch (_: Exception) { connecting = false; event("error", "Cannot connect. Check the internet connection and try again."); scheduleReconnect() }
@@ -138,6 +147,7 @@ class RemoteService : Service() {
     }
     override fun onDestroy() {
         stopping = true; main.removeCallbacksAndMessages(null); socket?.close(1000, "Phone control paused")
+        runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(network) }
         worker.shutdownNow(); client.dispatcher.executorService.shutdown(); super.onDestroy()
     }
     companion object { const val EVENT = "app.tvhome.launcher.REMOTE_EVENT" }

@@ -36,5 +36,7 @@ class RelayCredentials(context: Context) {
         val packed = cipher.iv + cipher.doFinal(token.toByteArray(Charsets.UTF_8))
         check(prefs.edit().putString("id", id).putString("token", Base64.encodeToString(packed, Base64.NO_WRAP)).commit())
     }
+    /** Drops an expired registration so pairing can start over with a fresh device secret. */
+    fun forget() { prefs.edit().remove("id").remove("token").commit() }
     fun clear() { prefs.edit().remove("id").remove("token").putBoolean("enabled", false).commit() }
 }
