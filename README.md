@@ -3,6 +3,7 @@
 A native Android TV / Google TV launcher, an Android and iPhone companion, and an authenticated relay for control at home or away.
 This is a developer preview, not a production release or a promise of compatibility with every TV model.
 See `HANDOFF.md` for app installation and `VERCEL.md` for the prepared Vercel deployment.
+See `CLAUDE-HANDOFF.md` for the current continuation handoff, live deployment status, remaining work, and user constraints.
 
 ## What is implemented
 
@@ -190,9 +191,9 @@ Replace them with configured production releases and update the page's wording o
 - Restart behavior and background service retention still need verification on manufacturer firmware.
 - Profiles, scheduled wallpaper collections, video backgrounds, widgets, and additional TV operating systems are not implemented.
 - Shared connection leases, expiring command delivery, replies, and rate limits use PostgreSQL across relay instances.
-- The Vercel configuration and exported server were checked locally; a real Vercel deployment and capacity verification remain outstanding.
+- The Vercel deployment is live at https://clean-tv-chi.vercel.app/ with verified homepage and database health; production TV socket behavior and capacity verification remain outstanding.
 - Relay operators terminate TLS and can process wallpaper content; this preview does not implement end-to-end encryption.
-- The hosted relay address, public domain configuration, and production signing identities are not configured here.
+- Existing preview APKs need rebuilding with the deployed relay origin; production signing and any custom domain setup remain separate release work.
 - Upstream Expo build-tool advisories remain under review; see `docs/dependency-notes.md`.
 
 ## Checks

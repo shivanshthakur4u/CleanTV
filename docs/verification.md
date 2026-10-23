@@ -2,6 +2,8 @@
 
 Recorded during developer-preview preparation and handoff.
 This records checks performed on the developer preview; it does not certify public release readiness.
+As of 23 October 2026, the public Vercel homepage and database health endpoint return HTTP 200, and unauthenticated device listing returns HTTP 401.
+The current continuation details are in `../CLAUDE-HANDOFF.md`.
 
 | Check | Result |
 | --- | --- |
@@ -70,8 +72,8 @@ It did not create a Supabase Auth account or use a physical TV.
 - Control with the phone away from the home network.
 - Launcher focus, Home-button behavior, HDMI shortcuts, reboot behavior, and background service retention across TV manufacturers.
 - Production iPhone build and permanent release signing identities.
-- A public Vercel deployment, installed apps configured with its production origin, and saved account sessions.
-- Production HTTPS/WebSocket hosting, deployment-time database connections, capacity, and operational configuration.
+- Installed apps rebuilt with the public Vercel origin and verified saved account sessions.
+- Production TV WebSocket connections, capacity, and operational behavior beyond the verified HTTPS/database health checks.
 - Remaining upstream dependency advisories documented in `dependency-notes.md`.
 
 No test cases were added.
