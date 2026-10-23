@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { auth, configured } from '../lib/auth';
+import { auth, configured, relayUrl } from '../lib/auth';
 import { useTV } from '../lib/store';
 import { Atmosphere, Button, Icon, Notice, Page, colors, s } from '../components/ui';
 export default function Auth() {
@@ -12,9 +12,9 @@ export default function Auth() {
     if (!email.trim() || password.length < 8) return Alert.alert('Check your details', 'Enter an email address and a password of at least 8 characters.');
     setLoading(true);
     try {
-      const { data, error } = signup ? await auth!.auth.signUp({ email: email.trim(), password }) : await auth!.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error } = signup ? await auth!.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${relayUrl}/auth/confirmed` } }) : await auth!.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error; setPassword('');
-      if (signup && !data.session) Alert.alert('Check your email', 'Confirm your email address, then return here to sign in.');
+      if (signup && !data.session) Alert.alert('Check your email', 'We sent a confirmation link to your email. Tap it, then come back here and sign in.');
     } catch (error) { Alert.alert('Could not sign in', error instanceof Error ? error.message : 'Try again.'); }
     finally { setLoading(false); }
   }

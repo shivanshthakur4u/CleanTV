@@ -157,6 +157,7 @@ app.setErrorHandler((error, req, reply) => {
 app.addHook('onSend', async (_req, reply) => {
   reply.header('X-Content-Type-Options', 'nosniff').header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
 });
+app.get('/auth/confirmed', async (_req, reply) => reply.type('text/html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email confirmed - TV Home</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1212;color:#f0f3eb;font-family:Inter,Arial,sans-serif;text-align:center;padding:24px}p{color:#9aaea4;line-height:1.7;max-width:420px}a{display:inline-block;margin-top:18px;background:#d7edcb;color:#101b17;padding:15px 22px;border-radius:14px;text-decoration:none;font-weight:600}</style></head><body><main><h1>Email confirmed.</h1><p>Your TV Home account is ready. Go back to the TV Home app on your phone and sign in.</p><a href="tvhome://auth">Open TV Home</a></main></body></html>`));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok' }; });
 app.get('/', async (_req, reply) => reply.type('text/html').send(await readFile(new URL('../public/index.html', import.meta.url), 'utf8')));
 for (const name of ['tv-home-preview.apk', 'tv-home-companion-preview.apk']) app.get(`/downloads/${name}`, async (_req, reply) => {

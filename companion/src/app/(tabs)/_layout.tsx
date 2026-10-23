@@ -1,10 +1,11 @@
 import { Redirect, Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTV } from '../../lib/store';
 import { Icon, colors } from '../../components/ui';
 export default function TabsLayout() {
-  const tv = useTV();
+  const tv = useTV(); const insets = useSafeAreaInsets();
   if (tv.ready && !tv.session && !tv.demo) return <Redirect href="/auth" />;
-  return <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.accent, tabBarInactiveTintColor: '#788D83', tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.line, paddingTop: 9 }, tabBarLabelStyle: { fontSize: 10, marginTop: 3 } }}>
+  return <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.accent, tabBarInactiveTintColor: '#788D83', tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.line, height: 62 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 8) }, tabBarLabelStyle: { fontSize: 10, marginTop: 3 } }}>
     <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color }) => <Icon name="home-outline" color={color} /> }} />
     <Tabs.Screen name="wallpapers" options={{ title: 'Style', tabBarIcon: ({ color }) => <Icon name="images-outline" color={color} /> }} />
     <Tabs.Screen name="remote" options={{ title: 'Remote', tabBarIcon: ({ color }) => <Icon name="navigate-circle-outline" color={color} /> }} />
