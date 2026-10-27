@@ -45,6 +45,9 @@ Removing a TV with `DELETE /v1/devices/:id` deletes its authorization record and
 | `roomName` | 1 to 40 characters. | 0.1 |
 | `clock24h` | Boolean. | 0.1 |
 | `favorites` | Up to 12 installed package names (8 before 0.2). | 0.1 |
+| `simpleHome`, `reduceMotion` | Boolean; defaults false. | 0.3 |
+| `performanceMode` | auto, quality, or efficient; auto uses Android's low-RAM flag. | 0.3 |
+| `continueWatching` | Boolean; enabling requires TV-local READ_TV_LISTINGS permission. | 0.3 |
 | `glass` | liquid or frosted. | 0.2 |
 | `blur` | Integer 0 to 25, applied to the backdrop behind menus on Android 12 or later. | 0.2 |
 | `darkMode` | off, on, sunset, or custom. | 0.2 |
@@ -73,9 +76,16 @@ A timeout means the change was not confirmed; the phone should refresh before re
 
 ## Account deletion
 
-`DELETE /v1/account` removes every TV owned by the signed-in account, closes their sockets, deletes the account's pairing requests, and then deletes the Supabase Auth user.
+`DELETE /v1/account` removes owned TVs, pairing requests, and the Supabase Auth user in one transaction.
+Socket-revocation notifications are delivered on commit.
+Every owner operation checks Auth user existence after JWT verification, rejecting deleted accounts immediately.
 The relay performs the Auth deletion with its database connection, so it needs no service-role key.
-If the Auth deletion fails, the TVs stay removed and the phone is told to try again.
+If deletion fails, the transaction rolls back and the phone is told to try again.
+The 0.3 state adds `simpleHome`, `reduceMotion`, `performanceMode`, `continueWatching`, `watchNextPermission`, and `health`.
+Health contains network validation, storage free/total bytes, default-Home resolution, low-RAM/efficient flags, and whether phone control is enabled.
+Enabled phone control is not proof of a live socket.
+Continue Watching titles, playback positions, and source intents are never included in relay state.
+Deploy the 0.3 relay validator before distributing the new phone controls; no migration is needed.
 
 ## Hosting and connection lifecycle
 

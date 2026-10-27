@@ -44,6 +44,10 @@ const settings = z.object({
   roomName: z.string().trim().min(1).max(40).optional(),
   favorites: z.array(pkg).max(12).refine(v => new Set(v).size === v.length).optional(),
   clock24h: z.boolean().optional(),
+  simpleHome: z.boolean().optional(),
+  reduceMotion: z.boolean().optional(),
+  continueWatching: z.boolean().optional(),
+  performanceMode: z.enum(['auto', 'quality', 'efficient']).optional(),
   glass: z.enum(['liquid', 'frosted']).optional(),
   blur: z.number().int().min(0).max(25).optional(),
   darkMode: z.enum(['off', 'on', 'sunset', 'custom']).optional(),
@@ -127,11 +131,19 @@ app.addHook('onRequest', async req => {
 async function owner(req: FastifyRequest) {
   const token = req.headers.authorization?.match(/^Bearer (\S+)$/)?.[1];
   if (!token) throw fail(401, 'Sign in to continue.');
+  let user;
   try {
     const { payload } = await jwtVerify(token, jwks, { issuer, audience: env.AUTH_AUDIENCE, algorithms: ['ES256', 'RS256'] });
     if (!uuid.safeParse(payload.sub).success || typeof payload.email !== 'string' || payload.is_anonymous === true) throw new Error();
-    return { id: payload.sub!, email: payload.email.slice(0, 320) };
+    user = { id: payload.sub!, email: payload.email.slice(0, 320) };
   } catch { throw fail(401, 'Your session has expired. Sign in again.'); }
+  // A signed JWT can outlive its deleted account; verify existence before every owner operation.
+  const active = await pool.query('SELECT id FROM auth.users WHERE id=$1 AND deleted_at IS NULL', [user.id]);
+  if (!active.rowCount) {
+    req.log.info('[DEBUG-account-auth] Rejected a token for an unavailable account');
+    throw fail(401, 'Your account is no longer available. Sign in again.');
+  }
+  return user;
 }
 async function tv(authorization: string | undefined): Promise<Device> {
   const token = authorization?.match(/^Device ([a-f0-9]{64})$/)?.[1];
@@ -173,7 +185,7 @@ app.get('/v1/devices', async req => {
   return { devices: result.rows };
 });
 app.get('/v1/devices/:id/state', async req => broker.send((await owned(req)).id, { type: 'getState' }));
-app.post('/v1/devices/:id/command', async req => {
+app.post('/v1/devices/:id/command', { config: { rateLimit: { max: 600, timeWindow: '1 minute' } } }, async req => {
   const device = await owned(req);
   const payload = command.parse(req.body);
   const state = await broker.send(device.id, payload);
@@ -189,16 +201,24 @@ app.delete('/v1/devices/:id', async req => {
 
 app.delete('/v1/account', { config: { rateLimit: { max: 5, timeWindow: '1 hour' } } }, async req => {
   const user = await owner(req);
-  const removed = await pool.query<{ id: string }>('DELETE FROM devices WHERE owner_id=$1 RETURNING id', [user.id]);
-  await Promise.all(removed.rows.map(row => broker.notify(row.id)));
-  await pool.query('DELETE FROM pairing_requests WHERE owner_id=$1', [user.id]);
-  // The relay connects as the database owner, which may delete the Supabase Auth user and its sessions.
-  try { await pool.query('DELETE FROM auth.users WHERE id=$1', [user.id]); }
-  catch (error) {
-    req.log.error({ code: (error as { code?: string }).code }, 'Account deletion failed');
-    throw fail(503, 'Your TVs were removed, but the account could not be deleted. Try again shortly.');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const removed = await client.query<{ id: string }>('DELETE FROM devices WHERE owner_id=$1 RETURNING id', [user.id]);
+    await client.query('DELETE FROM pairing_requests WHERE owner_id=$1', [user.id]);
+    // The database owner can remove the Auth user and sessions in the same transaction.
+    await client.query('DELETE FROM auth.users WHERE id=$1', [user.id]);
+    for (const row of removed.rows) await client.query("SELECT pg_notify('tvhome_relay',$1)", [row.id]);
+    await client.query('COMMIT');
+    req.log.info('[DEBUG-account-auth] Account deletion committed');
+    return { deleted: true, devices: removed.rowCount };
   }
-  return { deleted: true, devices: removed.rowCount };
+  catch (error) {
+    await client.query('ROLLBACK');
+    req.log.error({ code: (error as { code?: string }).code }, 'Account deletion failed');
+    throw fail(503, 'Your account could not be deleted. No changes were saved. Try again shortly.');
+  }
+  finally { client.release(); }
 });
 
 app.post('/v1/tv/register', { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } }, async req => {
