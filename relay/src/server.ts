@@ -64,6 +64,10 @@ const settings = z.object({
 }).strict();
 const command = z.discriminatedUnion('type', [
   z.object({ type: z.literal('getState') }).strict(),
+  z.object({ type: z.literal('saveLayout'), name: z.string().trim().min(1).max(24).regex(/^[^\u0000-\u001f\u007f-\u009f]+$/) }).strict(),
+  z.object({ type: z.literal('applyLayout'), id: uuid }).strict(),
+  z.object({ type: z.literal('deleteLayout'), id: uuid }).strict(),
+  z.object({ type: z.literal('undoLayout') }).strict(),
   z.object({ type: z.literal('settings'), settings }).strict(),
   z.object({ type: z.literal('wallpaper'), data: z.string().min(4).max(2_800_000).regex(/^[A-Za-z0-9+/]+={0,2}$/) }).strict(),
   z.object({ type: z.literal('launchApp'), package: pkg }).strict(),

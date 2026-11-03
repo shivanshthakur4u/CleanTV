@@ -35,6 +35,10 @@ Removing a TV with `DELETE /v1/devices/:id` deletes its authorization record and
 | `wallpaper` | A base64 JPEG, PNG, or WebP image, capped before and after decoding. |
 | `launchApp` | The package identifier of an installed app. |
 | `navigate` | up, down, left, right, select, back, home, controlCenter, recents, or apps. |
+| `saveLayout` | `name`: trimmed, unique on this TV, 1 to 24 characters, no control characters; at most six saved layouts. Requires TV 0.4. |
+| `applyLayout` | `id`: saved layout UUID. Requires TV 0.4. |
+| `deleteLayout` | `id`: saved layout UUID; leaves current settings unchanged. Requires TV 0.4. |
+| `undoLayout` | No additional fields; restores the one previous layout snapshot and clears Undo. Requires TV 0.4. |
 
 ### Settings fields
 
@@ -73,6 +77,21 @@ Replies are stored until the originating request reads them, allowing HTTP and W
 Expired payloads are removed by request-triggered cleanup.
 An acknowledged result contains the TV's current state, including its installed app labels and current appearance.
 A timeout means the change was not confirmed; the phone should refresh before retrying.
+
+## Saved layouts (0.4)
+
+The TV reports `layouts` as an array of `{id, name, savedAt}` metadata and `canUndoLayout` as a boolean.
+The phone uses the presence of `layouts` to expose compatible controls.
+Settings snapshots remain in TV-private preferences, not the database.
+Only favorites, hidden apps, folders, Simple Home, reduce motion, rendering, glass, blur, dark mode/schedule, pill, tile style, remote shortcuts and clock format belong to a layout.
+Wallpaper, room name, weather, account credentials, Continue Watching permission and viewing history are excluded.
+Applying a layout or changing one of its fields records the preceding layout in the same preferences transaction.
+Saving or deleting a named layout does not change Undo.
+Undo does not restore deleted named layouts.
+The service and activity serialize layout changes with one process-wide lock.
+Factory reset, clearing app data or uninstalling removes saved layouts.
+These are launcher snapshots, not streaming-service profiles or cloud backups.
+Deploy the 0.4 relay validator before distributing 0.4 clients; no database migration is needed.
 
 ## Account deletion
 
