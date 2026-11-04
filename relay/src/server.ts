@@ -9,11 +9,10 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { z } from 'zod';
 import { RelayBroker, fail } from './broker.js';
 import { databaseRateStore, incrementRate } from './rate-store.js';
-import { databaseConnectionString } from './database.js';
+import { databaseConfig } from './database.js';
 
 export const config = { maxDuration: 300 };
-// Keep the database CA visible to Vercel's file tracer and verify it is bundled.
-if (process.env.VERCEL === '1') await readFile(new URL('../certs/prod-ca-2021.crt', import.meta.url));
+const databaseCa = await readFile(new URL('../certs/prod-ca-2021.crt', import.meta.url), 'utf8');
 
 const env = z.object({
   DATABASE_URL: z.string().min(1),
@@ -25,8 +24,8 @@ const env = z.object({
 }).parse(process.env);
 const issuer = `${env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1`;
 const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
-const connectionString = databaseConnectionString(env.DATABASE_URL);
-const pool = new pg.Pool({ connectionString, max: 4, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 10000 });
+const database = databaseConfig(env.DATABASE_URL, databaseCa);
+const pool = new pg.Pool({ ...database, max: 4, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 10000 });
 const app = Fastify({ bodyLimit: 3_000_000, trustProxy: process.env.VERCEL === '1' || env.TRUST_PROXY === 'true', logger: { redact: ['req.headers.authorization', 'req.body'] } });
 pool.on('error', () => app.log.warn('Idle database connection closed.'));
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute', store: databaseRateStore(pool) });
@@ -86,7 +85,7 @@ type Device = { id: string; owner_id: string | null; name: string };
 type Connection = { ws: WebSocket; id: string; syncing: boolean; again: boolean };
 const sockets = new Map<string, Connection>();
 let upgrades = 0;
-const broker = new RelayBroker(pool, connectionString, id => { void syncDevice(id); }, () => {
+const broker = new RelayBroker(pool, database.connectionString, database.ssl, id => { void syncDevice(id); }, () => {
   for (const connection of sockets.values()) connection.ws.close(1012, 'Relay reconnecting');
 });
 async function syncDevice(id: string) {
@@ -118,7 +117,7 @@ app.addHook('onRequest', async req => {
   nextCleanup = Date.now() + 60000;
   try { await broker.cleanup(); }
   catch (error) {
-    nextCleanup = 0;
+    nextCleanup = Date.now() + 60000;
     const failure = error as { code?: unknown; cause?: { code?: unknown }; errors?: { code?: unknown }[] };
     const code = (value: unknown) => typeof value === 'string' && /^[A-Z0-9_]{1,64}$/.test(value) ? value : 'UNKNOWN';
     req.log.error({
@@ -128,7 +127,6 @@ app.addHook('onRequest', async req => {
       tlsModeSpecified: /[?&]sslmode=/.test(env.DATABASE_URL),
       tlsCaSpecified: /[?&]sslrootcert=/.test(env.DATABASE_URL),
     }, '[DEBUG-db-connect] Database cleanup failed');
-    throw fail(503, 'Database is temporarily unavailable.');
   }
 });
 
@@ -173,10 +171,10 @@ app.setErrorHandler((error, req, reply) => {
 app.addHook('onSend', async (_req, reply) => {
   reply.header('X-Content-Type-Options', 'nosniff').header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
 });
-app.get('/auth/confirmed', async (_req, reply) => reply.type('text/html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email confirmed - TV Home</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1212;color:#f0f3eb;font-family:Inter,Arial,sans-serif;text-align:center;padding:24px}p{color:#9aaea4;line-height:1.7;max-width:420px}a{display:inline-block;margin-top:18px;background:#d7edcb;color:#101b17;padding:15px 22px;border-radius:14px;text-decoration:none;font-weight:600}</style></head><body><main><h1>Email confirmed.</h1><p>Your TV Home account is ready. Go back to the TV Home app on your phone and sign in.</p><a href="tvhome://auth">Open TV Home</a></main></body></html>`));
-app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok' }; });
-app.get('/', async (_req, reply) => reply.type('text/html').send(await readFile(new URL('../public/index.html', import.meta.url), 'utf8')));
-for (const name of ['tv-home-preview.apk', 'tv-home-companion-preview.apk']) app.get(`/downloads/${name}`, async (_req, reply) => {
+app.get('/auth/confirmed', { config: { rateLimit: false } }, async (_req, reply) => reply.type('text/html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email confirmed - TV Home</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1212;color:#f0f3eb;font-family:Inter,Arial,sans-serif;text-align:center;padding:24px}p{color:#9aaea4;line-height:1.7;max-width:420px}a{display:inline-block;margin-top:18px;background:#d7edcb;color:#101b17;padding:15px 22px;border-radius:14px;text-decoration:none;font-weight:600}</style></head><body><main><h1>Email confirmed.</h1><p>Your TV Home account is ready. Go back to the TV Home app on your phone and sign in.</p><a href="tvhome://auth">Open TV Home</a></main></body></html>`));
+app.get('/health', { config: { rateLimit: false } }, async () => { await pool.query('SELECT 1'); return { status: 'ok' }; });
+app.get('/', { config: { rateLimit: false } }, async (_req, reply) => reply.type('text/html').send(await readFile(new URL('../public/index.html', import.meta.url), 'utf8')));
+for (const name of ['tv-home-preview.apk', 'tv-home-companion-preview.apk']) app.get(`/downloads/${name}`, { config: { rateLimit: false } }, async (_req, reply) => {
   const path = new URL(`../public/downloads/${name}`, import.meta.url);
   try {
     const file = await stat(path);

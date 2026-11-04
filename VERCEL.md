@@ -24,7 +24,7 @@ Transaction pooling is unsuitable because socket instances use PostgreSQL LISTEN
 Import the project into Vercel and set its Root Directory to `relay` within this project.
 If the repository contains this entire folder under another directory, use the full repository-relative path ending in `tv-home/relay`.
 The included `relay/vercel.json` selects Fastify, its build command, and Tokyo execution near the supplied database.
-The server exports its 300-second invocation limit, and its explicit certificate read keeps the database CA in Vercel's traced function bundle.
+The server exports its 300-second invocation limit and reads the bundled database CA into memory.
 Do not add a `functions` override for `src/server.ts`; Vercel CLI 64.7.0 rejects that override for Fastify before building.
 The build temporarily prints `[DEBUG-vercel-entry]` so deployment logs show that the corrected revision is running.
 Keep Fluid compute enabled for WebSocket support.
@@ -37,7 +37,8 @@ Set these server environment variables before deployment:
 | `DATABASE_URL` | The private PostgreSQL URI, including the encoded password and `sslmode=verify-full&sslrootcert=certs/prod-ca-2021.crt` query parameters. |
 
 The local `relay/.env` contains these values and is excluded from source archives and Vercel uploads.
-The relay resolves a relative `sslrootcert` from its application directory so Vercel's working directory does not affect certificate lookup.
+The relay removes the `sslrootcert` path from the PostgreSQL URI and passes the bundled CA contents to both the connection pool and notification listener.
+It requires `sslmode=verify-full` and keeps TLS certificate and hostname verification enabled.
 No Supabase service-role key is needed by the relay or either app.
 Keep database credentials in server secrets and rotate credentials shared in chat before public launch.
 Do not use disabled database TLS from the local-only example configuration.
@@ -46,6 +47,7 @@ Deploy and use the stable production HTTPS address.
 Use a production URL that app users can reach without Vercel team authentication.
 The app itself still requires Supabase authorization for device operations.
 Check `/health` for `{"status":"ok"}` and check both APK download links.
+The public homepage and download links remain available if PostgreSQL is unavailable; `/health` still checks the database connection.
 APK files belong in `public/downloads/` so Vercel can serve them as static downloads.
 
 ## 3. Configure the apps once, as publisher

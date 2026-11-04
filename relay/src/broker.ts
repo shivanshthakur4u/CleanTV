@@ -5,15 +5,16 @@ import pg from 'pg';
 export const fail = (status: number, message: string) => Object.assign(new Error(message), { statusCode: status });
 export type CommandResult = { ok: true; state: unknown } | { ok: false; error: string; status?: number };
 type Delivery = { id: string; payload: Record<string, unknown>; expires_at: Date };
+type DatabaseTls = { ca: string; rejectUnauthorized: true };
 
 export class RelayBroker {
   private listener: pg.Client | null = null;
   private starting: Promise<void> | null = null;
-  constructor(private pool: pg.Pool, private connectionString: string, private wake: (device: string) => void, private lost: () => void) {}
+  constructor(private pool: pg.Pool, private connectionString: string, private tls: DatabaseTls, private wake: (device: string) => void, private lost: () => void) {}
 
   async listen() {
     if (this.starting) return this.starting;
-    const client = new pg.Client({ connectionString: this.connectionString, connectionTimeoutMillis: 5000 });
+    const client = new pg.Client({ connectionString: this.connectionString, ssl: this.tls, connectionTimeoutMillis: 5000 });
     this.listener = client;
     client.on('notification', event => {
       if (event.channel === 'tvhome_relay' && /^[a-f0-9-]{36}$/.test(event.payload ?? '')) this.wake(event.payload!);
